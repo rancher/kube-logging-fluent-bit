@@ -17,6 +17,8 @@ permissions:
 jobs:
   ci:
     uses: ./.github/workflows/ci.yaml
+    with:
+      target: ${{ contains(github.ref_name, 'debug') && 'debug' || 'production' }}
     permissions:
       contents: read
 
@@ -46,6 +48,7 @@ jobs:
         with:
           image: ${{ env.IMAGE_NAME }}
           tag: ${{ github.ref_name }}
+          make-target: ${{ contains(github.ref_name, 'debug') && 'push-debug-image' || 'push-image' }}
           public-registry: ${{ env.PUBLIC_REGISTRY }}
           public-repo: ${{ env.PUBLIC_REPO }}
           public-username: ${{ env.DOCKER_USERNAME || vars.DOCKER_USERNAME || github.repository_owner }}
@@ -60,7 +63,7 @@ jobs:
         id: semver_check
         run: bash ./.github/scripts/check-semver "${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
 
-      - name: "Read vault secrets (prime prod)"
+      - name: "Read vault secrets"
         if: ${{ steps.semver_check.outputs.HAS_PRERELEASE == 'false' }}
         uses: rancher-eio/read-vault-secrets@0da85151ad1f19ed7986c41587e45aac1ace74b6 # v3
         with:
@@ -75,6 +78,7 @@ jobs:
         with:
           image: ${{ env.IMAGE_NAME }}
           tag: ${{ github.ref_name }}
+          make-target: ${{ contains(github.ref_name, 'debug') && 'push-debug-image' || 'push-image' }}
           push-to-public: false
           push-to-prime: true
           prime-registry: ${{ env.PRIME_REGISTRY }}

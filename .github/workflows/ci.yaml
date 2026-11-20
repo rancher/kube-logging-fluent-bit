@@ -2,7 +2,17 @@ name: CI
 
 on:
   workflow_call:
+    inputs:
+      target:
+        type: string
+        default: 'production'
+        description: 'Docker target to build and test'
   workflow_dispatch:
+    inputs:
+      target:
+        type: string
+        default: 'production'
+        description: 'Docker target to build and test'
   pull_request:
     paths-ignore:
       - 'docs/**'
@@ -25,19 +35,25 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build production image
+      - name: Build image
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
-          target: production
+          target: ${{ inputs.target || 'production' }}
           platforms: linux/amd64
           load: true
-          tags: rancher/fluent-bit:test-prod
-          cache-from: type=gha,scope=linux-amd64-production
-          cache-to: type=gha,mode=max,scope=linux-amd64-production
+          tags: rancher/fluent-bit:test
+          cache-from: type=gha,scope=linux-amd64-${{ inputs.target || 'production' }}
+          cache-to: type=gha,mode=max,scope=linux-amd64-${{ inputs.target || 'production' }}
 
-      - name: Smoke test production image
+      - name: Smoke test image
         run: |
-          docker run --rm rancher/fluent-bit:test-prod --version
-          docker run --rm rancher/fluent-bit:test-prod --dry-run -c /fluent-bit/etc/fluent-bit.conf
+          TARGET="${{ inputs.target || 'production' }}"
+          if [[ "$TARGET" == "debug" ]]; then
+            docker run --entrypoint /fluent-bit/bin/fluent-bit --rm rancher/fluent-bit:test --version
+            docker run --entrypoint /fluent-bit/bin/fluent-bit --rm rancher/fluent-bit:test --dry-run -c /fluent-bit/etc/fluent-bit.conf
+          else
+            docker run --rm rancher/fluent-bit:test --version
+            docker run --rm rancher/fluent-bit:test --dry-run -c /fluent-bit/etc/fluent-bit.conf
+          fi
